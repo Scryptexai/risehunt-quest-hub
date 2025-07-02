@@ -12,7 +12,7 @@ export const risechain = {
   },
   rpcUrls: {
     default: {
-      http: ['https://rpc.risechain.net'],
+      http: ['https://testnet.riselabs.xyz'],
     },
   },
   blockExplorers: {
