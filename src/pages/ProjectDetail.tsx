@@ -1,15 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Award, Sparkles } from 'lucide-react';
 import { projects } from '@/data/projects';
+import { useUserProgress } from '@/hooks/useUserProgress';
+import { useToast } from '@/hooks/use-toast';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const [taskStatuses, setTaskStatuses] = useState<Record<string, 'incomplete' | 'verify' | 'completed'>>({});
+  const { updateTaskStatus, getTaskProgress, addBadge } = useUserProgress();
+  const { toast } = useToast();
   
   const project = projects.find(p => p.id === projectId);
   
@@ -24,9 +26,10 @@ const ProjectDetail = () => {
     );
   }
 
-  const completedTasks = project.tasks.filter(task => 
-    (taskStatuses[task.id] || task.status) === 'completed'
-  ).length;
+  const completedTasks = project.tasks.filter(task => {
+    const progress = getTaskProgress(task.id);
+    return progress?.status === 'completed';
+  }).length;
   const allTasksCompleted = completedTasks === project.tasks.length;
 
   const getPlatformIcon = (platform: string) => {
@@ -52,14 +55,31 @@ const ProjectDetail = () => {
 
   const handleTaskAction = (taskId: string, action: 'start' | 'verify') => {
     if (action === 'start') {
-      setTaskStatuses(prev => ({ ...prev, [taskId]: 'verify' }));
+      updateTaskStatus(taskId, project.id, 'verify');
+      toast({
+        title: "Task started!",
+        description: "Please complete the action, then return to verify.",
+      });
     } else if (action === 'verify') {
-      setTaskStatuses(prev => ({ ...prev, [taskId]: 'completed' }));
+      updateTaskStatus(taskId, project.id, 'completed');
+      toast({
+        title: "Task completed!",
+        description: "Great job! Keep going to unlock your badge.",
+      });
     }
   };
 
+  const handleClaimBadge = () => {
+    addBadge(project.id);
+    toast({
+      title: "Badge claimed!",
+      description: `You've earned the ${project.name} badge NFT!`,
+    });
+  };
+
   const getTaskStatus = (task: any) => {
-    return taskStatuses[task.id] || task.status;
+    const progress = getTaskProgress(task.id);
+    return progress?.status || 'incomplete';
   };
 
   const getStatusButton = (task: any) => {
@@ -278,6 +298,7 @@ const ProjectDetail = () => {
                   className="w-full" 
                   disabled={!allTasksCompleted}
                   variant={allTasksCompleted ? "default" : "outline"}
+                  onClick={allTasksCompleted ? handleClaimBadge : undefined}
                 >
                   {allTasksCompleted ? (
                     <>

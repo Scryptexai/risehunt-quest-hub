@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ArrowRight, Award, Clock, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useUserProgress } from '@/hooks/useUserProgress';
 
 interface ProjectOverviewCardProps {
   project: Project;
@@ -11,11 +12,9 @@ interface ProjectOverviewCardProps {
 
 const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
   const navigate = useNavigate();
+  const { getProjectStats } = useUserProgress();
   
-  // Mock progress calculation (in real app, this would come from user data)
-  const completedTasks = Math.floor(Math.random() * project.tasks.length);
-  const totalTasks = project.tasks.length;
-  const progressPercentage = (completedTasks / totalTasks) * 100;
+  const { completed: completedTasks, total: totalTasks, progress: progressPercentage } = getProjectStats(project.id, project.tasks.length);
   const isCompleted = completedTasks === totalTasks;
 
   const handleEnterQuest = () => {

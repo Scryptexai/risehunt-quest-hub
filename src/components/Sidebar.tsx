@@ -2,19 +2,40 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Wallet, Trophy, CheckCircle, Star } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { useUserProgress } from '@/hooks/useUserProgress';
+import { projects } from '@/data/projects';
 
 const Sidebar = () => {
-  // Mock data - in real app this would come from user state
-  const completedTasks = 7;
-  const totalTasks = 15;
-  const earnedBadges = 4;
-  const totalPoints = 1250;
+  const { address, isConnected } = useAccount();
+  const { progress, isConnected: hasProgress } = useUserProgress();
+
+  if (!isConnected) {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-gradient-card border-primary/20">
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Wallet className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
+            <p className="text-sm text-muted-foreground">
+              Connect your wallet to track your quest progress and earn badges.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const completedTasks = progress?.tasks.filter(t => t.status === 'completed').length || 0;
+  const totalTasks = projects.reduce((acc, p) => acc + p.tasks.length, 0);
+  const earnedBadges = progress?.badges.length || 0;
+  const totalPoints = progress?.totalPoints || 0;
 
   const mockBadges = [
-    { id: '1', name: 'Early Supporter', icon: '🚀', rarity: 'common' },
-    { id: '2', name: 'Community Builder', icon: '🏗️', rarity: 'rare' },
-    { id: '3', name: 'DeFi Explorer', icon: '⚡', rarity: 'epic' },
-    { id: '4', name: 'Social Butterfly', icon: '🦋', rarity: 'legendary' },
+    { id: 'nitrodex', name: 'NitroDex Explorer', icon: '⚡', rarity: 'common' },
+    { id: 'standard', name: 'Standard User', icon: '🛡️', rarity: 'rare' },
+    { id: 'onchaingm', name: 'OnchainGM Supporter', icon: '🌅', rarity: 'epic' },
+    { id: 'kingdom', name: 'Kingdom Defender', icon: '🏰', rarity: 'legendary' },
   ];
 
   const getRarityColor = (rarity: string) => {
@@ -41,11 +62,11 @@ const Sidebar = () => {
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-background/50 border border-border">
               <p className="text-sm text-muted-foreground">Connected Wallet</p>
-              <p className="font-mono text-sm">0x1234...abcd</p>
+              <p className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</p>
             </div>
-            <Button variant="outline" size="sm" className="w-full">
-              Switch Wallet
-            </Button>
+            <div className="text-xs text-muted-foreground text-center">
+              Progress saved locally
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -103,24 +124,34 @@ const Sidebar = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockBadges.map((badge) => (
-              <div key={badge.id} className="flex items-center space-x-3 p-2 rounded-lg bg-background/50 border border-border">
-                <div className="text-2xl">{badge.icon}</div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{badge.name}</p>
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${getRarityColor(badge.rarity)} text-white`}
-                  >
-                    {badge.rarity}
-                  </Badge>
+            {mockBadges.map((badge) => {
+              const isEarned = progress?.badges.includes(badge.id);
+              return (
+                <div key={badge.id} className={`flex items-center space-x-3 p-2 rounded-lg border ${
+                  isEarned ? 'bg-background/50 border-border' : 'bg-muted/30 border-muted grayscale'
+                }`}>
+                  <div className="text-2xl">{badge.icon}</div>
+                  <div className="flex-1">
+                    <p className={`font-medium text-sm ${!isEarned && 'text-muted-foreground'}`}>
+                      {badge.name}
+                    </p>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${isEarned ? getRarityColor(badge.rarity) : 'bg-muted'} text-white`}
+                    >
+                      {isEarned ? badge.rarity : 'locked'}
+                    </Badge>
+                  </div>
+                  {isEarned && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
-            <Button variant="outline" size="sm" className="w-full mt-3">
-              View All Badges
-            </Button>
+            <div className="text-xs text-center text-muted-foreground mt-3">
+              Complete all project tasks to earn badges
+            </div>
           </div>
         </CardContent>
       </Card>
