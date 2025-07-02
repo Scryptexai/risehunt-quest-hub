@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
-import TaskCard from '@/components/TaskCard';
+import ProjectOverviewCard from '@/components/ProjectOverviewCard';
 import Sidebar from '@/components/Sidebar';
 import AdminPanel from '@/components/AdminPanel';
 import { projects } from '@/data/projects';
@@ -37,10 +37,10 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Project Cards Grid */}
+                {/* Project Overview Cards Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {projects.map((project) => (
-                    <TaskCard key={project.id} project={project} />
+                    <ProjectOverviewCard key={project.id} project={project} />
                   ))}
                 </div>
               </div>
