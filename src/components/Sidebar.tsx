@@ -1,14 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Wallet, Trophy, CheckCircle, Star } from 'lucide-react';
+import { Wallet, Trophy, CheckCircle, Star, Calendar, Flame } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useDailyTasks } from '@/hooks/useDailyTasks';
 import { projects } from '@/data/projects';
 
 const Sidebar = () => {
   const { address, isConnected } = useAccount();
   const { progress, isConnected: hasProgress } = useUserProgress();
+  const { dailyProgress } = useDailyTasks();
 
   if (!isConnected) {
     return (
@@ -30,6 +32,11 @@ const Sidebar = () => {
   const totalTasks = projects.reduce((acc, p) => acc + p.tasks.length, 0);
   const earnedBadges = progress?.badges.length || 0;
   const totalPoints = progress?.totalPoints || 0;
+  
+  // Daily tasks stats
+  const totalDailyCompletions = dailyProgress.reduce((acc, p) => acc + p.total_completions, 0);
+  const dailyBadgesEligible = dailyProgress.filter(p => p.total_completions >= 20 && !p.badge_claimed).length;
+  const dailyBadgesClaimed = dailyProgress.filter(p => p.badge_claimed).length;
 
   const mockBadges = [
     { id: 'nitrodex', name: 'NitroDex Explorer', icon: '⚡', rarity: 'common' },
@@ -113,6 +120,52 @@ const Sidebar = () => {
                 <p className="text-xs text-muted-foreground">Points</p>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Daily Tasks Progress */}
+      <Card className="bg-gradient-card border-primary/20">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center space-x-2">
+            <Calendar className="w-5 h-5" />
+            <span>Daily Tasks</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Daily Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-background/50 border border-border text-center">
+                <div className="flex items-center justify-center space-x-1 mb-1">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span className="text-lg font-bold">{totalDailyCompletions}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Completions</p>
+              </div>
+              
+              <div className="p-3 rounded-lg bg-background/50 border border-border text-center">
+                <div className="flex items-center justify-center space-x-1 mb-1">
+                  <Trophy className="w-4 h-4 text-primary" />
+                  <span className="text-lg font-bold">{dailyBadgesClaimed}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Daily Badges</p>
+              </div>
+            </div>
+
+            {dailyBadgesEligible > 0 && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-center space-x-2">
+                  <Trophy className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    {dailyBadgesEligible} Daily Badge{dailyBadgesEligible !== 1 ? 's' : ''} Ready!
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Check your daily tasks to claim
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

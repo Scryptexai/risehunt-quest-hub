@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
 import ProjectOverviewCard from '@/components/ProjectOverviewCard';
+import DailyTaskCard from '@/components/DailyTaskCard';
 import Sidebar from '@/components/Sidebar';
 import AdminPanel from '@/components/AdminPanel';
 import { projects } from '@/data/projects';
@@ -29,19 +30,44 @@ const Index = () => {
           <TabsContent value="quests" className="space-y-8">
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
               {/* Main Quest Board */}
-              <div className="xl:col-span-3 space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-3xl font-bold">Active Quests</h2>
-                  <div className="text-sm text-muted-foreground">
-                    {projects.length} Projects • {projects.reduce((acc, p) => acc + p.tasks.length, 0)} Tasks Available
+              <div className="xl:col-span-3 space-y-8">
+                {/* Daily Tasks Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-3xl font-bold">Daily Tasks</h2>
+                    <div className="text-sm text-muted-foreground">
+                      Complete 5 DEX swaps + 1 check-in daily • 20 total for NFT badge
+                    </div>
+                  </div>
+
+                  {/* Daily Task Cards Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {projects.slice(0, 4).map((project) => (
+                      <DailyTaskCard 
+                        key={`daily-${project.id}`} 
+                        projectId={project.id}
+                        projectName={project.name}
+                        projectLogo={project.logo}
+                      />
+                    ))}
                   </div>
                 </div>
 
-                {/* Project Overview Cards Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {projects.map((project) => (
-                    <ProjectOverviewCard key={project.id} project={project} />
-                  ))}
+                {/* Regular Quests Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-3xl font-bold">Active Quests</h2>
+                    <div className="text-sm text-muted-foreground">
+                      {projects.length} Projects • {projects.reduce((acc, p) => acc + p.tasks.length, 0)} Tasks Available
+                    </div>
+                  </div>
+
+                  {/* Project Overview Cards Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {projects.map((project) => (
+                      <ProjectOverviewCard key={project.id} project={project} />
+                    ))}
+                  </div>
                 </div>
               </div>
 
