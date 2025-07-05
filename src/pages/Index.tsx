@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
 import ProjectOverviewCard from '@/components/ProjectOverviewCard';
-
+import MyBadgesTab from '@/components/MyBadgesTab';
 import Sidebar from '@/components/Sidebar';
 import AdminPanel from '@/components/AdminPanel';
 import { projects } from '@/data/projects';
@@ -18,9 +18,12 @@ const Index = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="quests" className="text-lg">
               Quest Board
+            </TabsTrigger>
+            <TabsTrigger value="badges" className="text-lg">
+              My Badges
             </TabsTrigger>
             <TabsTrigger value="admin" className="text-lg">
               Admin Panel
@@ -54,6 +57,10 @@ const Index = () => {
                 <Sidebar />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="badges" className="space-y-8">
+            <MyBadgesTab />
           </TabsContent>
 
           <TabsContent value="admin" className="space-y-8">

@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi';
 export interface TaskProgress {
   taskId: string;
   projectId: string;
-  status: 'incomplete' | 'verify' | 'completed';
+  status: 'incomplete' | 'in_progress' | 'completed';
   completedAt?: string;
   verificationData?: any;
 }

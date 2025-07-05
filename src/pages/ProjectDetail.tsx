@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Award, Sparkles } from 'lucide-react';
+import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Award, Sparkles, Loader2 } from 'lucide-react';
 import { projects } from '@/data/projects';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
@@ -10,8 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { updateTaskStatus, getTaskProgress, addBadge } = useUserProgress();
+  const { updateTaskStatus, getTaskProgress, addBadge, progress } = useUserProgress();
   const { toast } = useToast();
+  const [verifyingTasks, setVerifyingTasks] = useState<Set<string>>(new Set());
   
   const project = projects.find(p => p.id === projectId);
   
@@ -31,6 +33,7 @@ const ProjectDetail = () => {
     return progress?.status === 'completed';
   }).length;
   const allTasksCompleted = completedTasks === project.tasks.length;
+  const badgeClaimed = progress?.badges.includes(project.id);
 
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
@@ -53,19 +56,57 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleTaskAction = (taskId: string, action: 'start' | 'verify') => {
-    if (action === 'start') {
-      updateTaskStatus(taskId, project.id, 'verify');
+  const handleTaskAction = async (taskId: string, task: any) => {
+    const currentStatus = getTaskStatus(task);
+    
+    if (currentStatus === 'incomplete') {
+      // Open the task link and start verification
+      window.open(task.link, '_blank');
+      
+      // Start verification process
+      setVerifyingTasks(prev => new Set(prev).add(taskId));
+      updateTaskStatus(taskId, project.id, 'in_progress');
+      
       toast({
-        title: "Task started!",
-        description: "Please complete the action, then return to verify.",
+        title: "Verifying...",
+        description: "Please complete the action. We're automatically verifying your progress.",
       });
-    } else if (action === 'verify') {
-      updateTaskStatus(taskId, project.id, 'completed');
-      toast({
-        title: "Task completed!",
-        description: "Great job! Keep going to unlock your badge.",
-      });
+
+      // Simulate verification based on task criteria
+      try {
+        await new Promise(resolve => setTimeout(resolve, task.verificationCriteria.simulationDelayMs));
+        
+        // Simulate success/failure based on success rate
+        const isSuccess = Math.random() < task.verificationCriteria.successRate;
+        
+        if (isSuccess) {
+          updateTaskStatus(taskId, project.id, 'completed');
+          toast({
+            title: "Task Completed!",
+            description: `Great job! ${task.reward} earned.`,
+          });
+        } else {
+          updateTaskStatus(taskId, project.id, 'incomplete');
+          toast({
+            title: "Verification Failed",
+            description: "Please try again. Make sure you've completed the required action.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        updateTaskStatus(taskId, project.id, 'incomplete');
+        toast({
+          title: "Verification Error",
+          description: "Something went wrong. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setVerifyingTasks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(taskId);
+          return newSet;
+        });
+      }
     }
   };
 
@@ -84,6 +125,8 @@ const ProjectDetail = () => {
 
   const getStatusButton = (task: any) => {
     const status = getTaskStatus(task);
+    const isVerifying = verifyingTasks.has(task.id);
+    
     switch (status) {
       case 'completed':
         return (
@@ -92,15 +135,11 @@ const ProjectDetail = () => {
             Completed
           </Button>
         );
-      case 'verify':
+      case 'in_progress':
         return (
-          <Button 
-            variant="default" 
-            size="sm"
-            onClick={() => handleTaskAction(task.id, 'verify')}
-          >
-            <Clock className="w-4 h-4" />
-            Verify
+          <Button variant="secondary" size="sm" disabled>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Verifying...
           </Button>
         );
       default:
@@ -108,9 +147,17 @@ const ProjectDetail = () => {
           <Button 
             variant="quest" 
             size="sm"
-            onClick={() => handleTaskAction(task.id, 'start')}
+            onClick={() => handleTaskAction(task.id, task)}
+            disabled={isVerifying}
           >
-            Start Task
+            {isVerifying ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              'Start Task'
+            )}
           </Button>
         );
     }
@@ -207,19 +254,6 @@ const ProjectDetail = () => {
                       </div>
 
                       <div className="flex flex-col space-y-2">
-                        <Button
-                          variant={getPlatformVariant(task.platform) as any}
-                          size="sm"
-                          onClick={() => window.open(task.link, '_blank')}
-                        >
-                          {getPlatformIcon(task.platform)}
-                          <span className="ml-2">
-                            {task.platform === 'onchain' ? 'Launch' : 
-                             task.platform === 'website' ? 'Visit' : 
-                             task.platform === 'twitter' ? 'Follow' : 'Join'}
-                          </span>
-                        </Button>
-                        
                         {getStatusButton(task)}
                       </div>
                     </div>
@@ -245,38 +279,47 @@ const ProjectDetail = () => {
                 {/* Badge Preview */}
                 <div className="relative">
                   <div 
-                    className={`w-full h-40 rounded-lg border-2 border-primary/20 flex items-center justify-center transition-all duration-500 ${
-                      allTasksCompleted 
-                        ? 'bg-gradient-primary shadow-glow' 
-                        : 'bg-muted/50 grayscale blur-sm'
+                    className={`w-full h-40 rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
+                      allTasksCompleted && !badgeClaimed
+                        ? 'shadow-glow' 
+                        : !allTasksCompleted 
+                        ? 'grayscale blur-sm' 
+                        : ''
                     }`}
                   >
-                    <div className="text-center">
-                      <Award className={`w-12 h-12 mx-auto mb-2 ${allTasksCompleted ? 'text-white' : 'text-muted-foreground'}`} />
-                      <div className={`font-bold ${allTasksCompleted ? 'text-white' : 'text-muted-foreground'}`}>
-                        {project.name}
-                      </div>
-                      <div className={`text-sm ${allTasksCompleted ? 'text-white/80' : 'text-muted-foreground'}`}>
-                        Quest Master
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {!allTasksCompleted && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="bg-background/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-primary/20">
-                        <div className="text-sm font-medium text-center">
-                          {project.tasks.length - completedTasks} tasks remaining
+                    <img 
+                      src={project.badgeImage} 
+                      alt={`${project.name} NFT Badge`}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Overlay for locked state */}
+                    {!allTasksCompleted && (
+                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {project.tasks.length - completedTasks} tasks remaining
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {allTasksCompleted && (
-                    <div className="absolute -top-2 -right-2">
-                      <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-                    </div>
-                  )}
+                    )}
+                    
+                    {/* Sparkles effect for completed state */}
+                    {allTasksCompleted && !badgeClaimed && (
+                      <div className="absolute -top-2 -right-2">
+                        <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+                      </div>
+                    )}
+                    
+                    {/* Claimed indicator */}
+                    {badgeClaimed && (
+                      <div className="absolute top-2 right-2">
+                        <div className="bg-background rounded-full p-1">
+                          <Check className="w-4 h-4 text-green-400" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Progress */}
@@ -296,11 +339,16 @@ const ProjectDetail = () => {
                 {/* Claim Button */}
                 <Button 
                   className="w-full" 
-                  disabled={!allTasksCompleted}
-                  variant={allTasksCompleted ? "default" : "outline"}
-                  onClick={allTasksCompleted ? handleClaimBadge : undefined}
+                  disabled={!allTasksCompleted || badgeClaimed}
+                  variant={allTasksCompleted && !badgeClaimed ? "default" : "outline"}
+                  onClick={allTasksCompleted && !badgeClaimed ? handleClaimBadge : undefined}
                 >
-                  {allTasksCompleted ? (
+                  {badgeClaimed ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Badge Claimed
+                    </>
+                  ) : allTasksCompleted ? (
                     <>
                       <Award className="w-4 h-4 mr-2" />
                       Claim Badge NFT
@@ -310,9 +358,15 @@ const ProjectDetail = () => {
                   )}
                 </Button>
 
-                {allTasksCompleted && (
+                {allTasksCompleted && !badgeClaimed && (
                   <div className="text-xs text-center text-muted-foreground">
                     🎉 Congratulations! You've completed all tasks for {project.name}
+                  </div>
+                )}
+                
+                {badgeClaimed && (
+                  <div className="text-xs text-center text-muted-foreground">
+                    ✅ Badge successfully claimed and added to your collection
                   </div>
                 )}
               </CardContent>

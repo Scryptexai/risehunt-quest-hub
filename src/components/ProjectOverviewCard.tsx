@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowRight, Award, Clock, CheckCircle, Zap, Calendar, Flame, Check } from 'lucide-react';
+import { ArrowRight, Award, Clock, CheckCircle, Zap, Calendar, Flame, Check, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useDailyTasks } from '@/hooks/useDailyTasks';
@@ -17,13 +17,32 @@ interface ProjectOverviewCardProps {
 const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
   const navigate = useNavigate();
   const { isConnected } = useAccount();
-  const { getProjectStats } = useUserProgress();
+  const { getProjectStats, progress } = useUserProgress();
   const { completeDailyTask, claimDailyBadge, getDailyStats, loading } = useDailyTasks();
   const { toast } = useToast();
   
   const { completed: completedTasks, total: totalTasks, progress: progressPercentage } = getProjectStats(project.id, project.tasks.length);
   const isCompleted = completedTasks === totalTasks;
+  const badgeClaimed = progress?.badges.includes(project.id);
   const dailyStats = getDailyStats(project.id);
+
+  // Get quest status for badge display
+  const getQuestStatus = () => {
+    if (badgeClaimed) return 'Claimed';
+    if (isCompleted) return 'Completed';
+    if (completedTasks > 0) return 'In Progress';
+    return 'New Quest';
+  };
+
+  const getStatusVariant = () => {
+    const status = getQuestStatus();
+    switch (status) {
+      case 'Claimed': return 'default';
+      case 'Completed': return 'default';
+      case 'In Progress': return 'secondary';
+      default: return 'outline';
+    }
+  };
 
   const handleEnterQuest = () => {
     navigate(`/project/${project.id}`);
@@ -123,6 +142,9 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           </div>
           
           <div className="flex items-center space-x-2">
+            <Badge variant={getStatusVariant() as any} className="border-primary/30">
+              {getQuestStatus()}
+            </Badge>
             <Badge variant="outline" className="border-primary/30">
               {totalTasks} Task{totalTasks !== 1 ? 's' : ''}
             </Badge>
@@ -131,6 +153,69 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* NFT Badge Preview */}
+        <div className="space-y-3 pt-3 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Award className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">NFT Badge Reward</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {isCompleted ? 'Ready to claim!' : `${project.tasks.length - completedTasks} tasks left`}
+            </span>
+          </div>
+          
+          <div className="relative">
+            <div 
+              className={`w-full h-24 rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
+                isCompleted && !badgeClaimed
+                  ? 'shadow-glow' 
+                  : !isCompleted 
+                  ? 'grayscale blur-sm' 
+                  : ''
+              }`}
+            >
+              <img 
+                src={project.badgeImage} 
+                alt={`${project.name} NFT Badge`}
+                className="w-full h-full object-cover"
+              />
+              
+              {/* Overlay for locked state */}
+              {!isCompleted && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Locked
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Sparkles effect for completed state */}
+              {isCompleted && !badgeClaimed && (
+                <div className="absolute -top-1 -right-1">
+                  <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                </div>
+              )}
+              
+              {/* Claimed indicator */}
+              {badgeClaimed && (
+                <div className="absolute top-1 right-1">
+                  <CheckCircle className="w-4 h-4 text-green-400 bg-background rounded-full" />
+                </div>
+              )}
+            </div>
+            
+            {/* Badge status text */}
+            <div className="text-center mt-2">
+              <div className="text-xs text-muted-foreground">
+                {badgeClaimed ? 'Badge Claimed!' : isCompleted ? 'Badge Unlocked!' : 'Complete tasks to unlock'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Progress Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -188,7 +273,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
             onClick={handleEnterQuest}
             className="group-hover:scale-105 transition-transform"
           >
-            {isCompleted ? 'View Quest' : 'Enter Quest'}
+            {badgeClaimed ? 'View Quest' : isCompleted ? 'Claim Badge' : 'Enter Quest'}
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -255,15 +340,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           </div>
         )}
 
-        {/* Regular Quest Reward Preview */}
-        {isCompleted && (
-          <div className="flex items-center justify-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-            <div className="flex items-center space-x-2 text-sm">
-              <Award className="w-4 h-4 text-primary" />
-              <span className="text-primary font-medium">Quest Badge NFT Unlocked</span>
-            </div>
-          </div>
-        )}
+        {/* Regular Quest Reward Preview - Remove this section since we moved it up */}
       </CardContent>
     </Card>
   );
