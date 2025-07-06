@@ -1,27 +1,28 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress'; // NEW: Import Progress
-import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Award, Sparkles, Loader2 } from 'lucide-react'; // Added Loader2, removed unnecessary imports
-import { projects, Task, DailyTaskMeta } from '@/data/projects'; // NEW: Import Task and DailyTaskMeta
+import { Progress } from '@/components/ui/progress';
+import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Award, Sparkles, Loader2, Flame } from 'lucide-react'; // Added Flame icon for daily tasks
+import { projects, Task, DailyTaskMeta } from '@/data/projects';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react'; // NEW: Import useState
-import { useDailyTasks } from '@/hooks/useDailyTasks'; // NEW: Import useDailyTasks
+import { useState } from 'react';
+import { useDailyTasks } from '@/hooks/useDailyTasks'; // Ensure this is the updated useDailyTasks that uses localStorage
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { updateTaskStatus, getTaskProgress, addBadge, progress } = useUserProgress();
   const { toast } = useToast();
-  const { completeDailyTask, getDailyStats, loading: dailyTasksLoading } = useDailyTasks(); // NEW: use useDailyTasks hook
-  
+  const { completeDailyTask, getDailyStats, claimDailyBadge, loading: dailyTasksLoading } = useDailyTasks(); // Destructure claimDailyBadge
+
   const project = projects.find(p => p.id === projectId);
-  
-  // NEW: State to manage loading status per main quest task during simulated verification
+
+  // State for loading status of main quest tasks
   const [mainTaskLoading, setMainTaskLoading] = useState<Record<string, boolean>>({});
-  
+
   if (!project) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -38,9 +39,9 @@ const ProjectDetail = () => {
     return taskProgress?.status === 'completed';
   }).length;
   const allMainTasksCompleted = completedMainTasksCount === project.tasks.length;
-  const isProjectBadgeClaimed = progress?.badges.includes(project.id); // Check if this project's main badge is claimed
+  const isProjectBadgeClaimed = progress?.badges.includes(project.id);
 
-  // NEW: Get daily task stats for this project
+  // Get daily task stats for this project
   const dailyStats = getDailyStats(project.id);
 
   const getPlatformIcon = (platform: string) => {
@@ -64,10 +65,10 @@ const ProjectDetail = () => {
     }
   };
 
-  // NEW: handleTaskAction for MAIN QUEST TASKS
+  // handleTaskAction for MAIN QUEST TASKS
   const handleMainTaskAction = async (task: Task) => {
     setMainTaskLoading(prev => ({ ...prev, [task.id]: true }));
-    
+
     // 1. Update status to in_progress
     updateTaskStatus(task.id, project.id, 'in_progress');
 
@@ -75,13 +76,13 @@ const ProjectDetail = () => {
     toast({
       title: `${task.type === 'ON-CHAIN' ? 'Initiating On-Chain verification' : 'Verifying Social Task'}`,
       description: `Please complete the action on ${task.platform.toUpperCase()}. We will verify automatically.`,
-      duration: (task.verificationCriteria?.simulationDelayMs || 2500) + 1500, // Duration slightly longer than simulation
+      duration: (task.verificationCriteria?.simulationDelayMs || 2500) + 1500,
     });
 
     // 3. Simulate backend verification
     const verificationSuccess = await new Promise(resolve => setTimeout(() => {
       resolve(Math.random() > 0.1); // Simulate ~90% success rate
-    }, task.verificationCriteria?.simulationDelayMs || 2500)); 
+    }, task.verificationCriteria?.simulationDelayMs || 2500));
 
     setMainTaskLoading(prev => ({ ...prev, [task.id]: false }));
 
@@ -102,12 +103,12 @@ const ProjectDetail = () => {
     }
   };
 
-  // NEW: handleDailyTaskAction for DAILY TASKS
+  // handleDailyTaskAction for DAILY TASKS
   const handleDailyTaskAction = async (dailyTaskMeta: DailyTaskMeta) => {
     setMainTaskLoading(prev => ({ ...prev, [`daily-${dailyTaskMeta.id}`]: true })); // Use specific ID for daily tasks loading
-    
+
     const result = await completeDailyTask(dailyTaskMeta, project.id); // Pass DailyTaskMeta
-    
+
     setMainTaskLoading(prev => ({ ...prev, [`daily-${dailyTaskMeta.id}`]: false }));
 
     if (result.error) {
@@ -141,12 +142,16 @@ const ProjectDetail = () => {
     });
   };
 
+  // This function is for claiming the DAILY badge
   const handleClaimDailyBadge = async () => {
-    // This action is handled by useDailyTasks hook
-    await completeDailyTask(dailyTasksLoading as any, project.id); // Call daily task completion for placeholder daily task
-    // The actual claimDailyBadge is handled by useDailyTasks.claimDailyBadge
-    // This button here should trigger that.
-    await useDailyTasks().claimDailyBadge(project.id); // Directly call from the hook
+    const result = await claimDailyBadge(project.id); // Call the actual claimDailyBadge from useDailyTasks
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
   };
 
 
@@ -168,8 +173,8 @@ const ProjectDetail = () => {
       );
     } else {
       return (
-        <Button 
-          variant="quest" 
+        <Button
+          variant="quest"
           size="sm"
           onClick={() => handleMainTaskAction(task)} // Call new handleMainTaskAction
           disabled={isLoading}
@@ -194,29 +199,41 @@ const ProjectDetail = () => {
     const taskStat = dailyStats.tasks.find(t => t.id === dailyTaskMeta.id);
     const isLoading = mainTaskLoading[`daily-${dailyTaskMeta.id}`];
 
-    if (!taskStat || !taskStat.canCompleteToday) {
-      return (
-        <Button variant="secondary" size="sm" disabled>
-          {taskStat ? `${taskStat.completedToday}/${taskStat.dailyLimit}` : 'Done'}
-        </Button>
-      );
-    } else {
-      return (
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => handleDailyTaskAction(dailyTaskMeta)}
-          disabled={isLoading || dailyTasksLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            dailyTaskMeta.action === 'check_in_game' ? 'Check In' : 'Complete'
-          )}
-        </Button>
-      );
+    // Check combined limit for Inarfi and B3X if applicable
+    let canComplete = true;
+    if (dailyTaskMeta.action === 'borrow' || dailyTaskMeta.action === 'repay' || dailyTaskMeta.action === 'deposit') {
+        const inarfiDailyTasks = dailyStats.tasks.filter(t => ['borrow', 'repay', 'deposit'].includes(t.action));
+        const inarfiCompletedToday = inarfiDailyTasks.reduce((sum, current) => sum + current.completedToday, 0);
+        if (inarfiCompletedToday >= dailyTaskMeta.dailyLimit) {
+            canComplete = false;
+        }
+    } else if (dailyTaskMeta.action === 'long_trade' || dailyTaskMeta.action === 'short_trade') {
+        const b3xDailyTasks = dailyStats.tasks.filter(t => ['long_trade', 'short_trade'].includes(t.action));
+        const b3xCompletedToday = b3xDailyTasks.reduce((sum, current) => sum + current.completedToday, 0);
+        if (b3xCompletedToday >= dailyTaskMeta.dailyLimit) {
+            canComplete = false;
+        }
+    } else if (!taskStat?.canCompleteToday) {
+        canComplete = false;
     }
+
+
+    return (
+        <Button
+            variant={canComplete ? "default" : "secondary"}
+            size="sm"
+            onClick={() => handleDailyTaskAction(dailyTaskMeta)}
+            disabled={!canComplete || isLoading || dailyTasksLoading}
+        >
+            {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+                dailyTaskMeta.action === 'check_in_game' ? 'Check In' : 'Complete'
+            )}
+        </Button>
+    );
   };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -224,9 +241,9 @@ const ProjectDetail = () => {
       <div className="bg-gradient-card border-b border-primary/20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center space-x-4 mb-6">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate('/')}
               className="hover:bg-primary/10"
             >
@@ -234,11 +251,11 @@ const ProjectDetail = () => {
               Back to Quest Hub
             </Button>
           </div>
-          
+
           <div className="flex items-center space-x-4">
-            <img 
-              src={project.logo} 
-              alt={`${project.name} logo`} 
+            <img
+              src={project.logo}
+              alt={`${project.name} logo`}
               className="w-16 h-16 rounded-xl object-cover border border-primary/20"
             />
             <div>
@@ -252,9 +269,9 @@ const ProjectDetail = () => {
                 <Badge variant="outline" className="border-primary/30">
                   {completedMainTasksCount}/{project.tasks.length} Tasks Completed
                 </Badge>
-                <a 
-                  href={project.website} 
-                  target="_blank" 
+                <a
+                  href={project.website}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary hover:underline"
                 >
@@ -269,7 +286,7 @@ const ProjectDetail = () => {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Quest Tasks Section */}
+          {/* Tasks Section */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Main Quest Tasks</h2>
@@ -287,12 +304,12 @@ const ProjectDetail = () => {
                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 border border-primary/20">
                           <span className="text-sm font-medium text-primary">{index + 1}</span>
                         </div>
-                        
+
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             {getPlatformIcon(task.platform)}
                             <h3 className="font-semibold">{task.title}</h3>
-                            <Badge 
+                            <Badge
                               variant={task.type === 'SOCIAL' ? 'secondary' : 'default'}
                               className="text-xs"
                             >
@@ -301,7 +318,7 @@ const ProjectDetail = () => {
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">
                             {task.description}
-                            {task.verificationCriteria?.valueDisplay && 
+                            {task.verificationCriteria?.valueDisplay &&
                                 <span className="ml-1 text-primary">({task.verificationCriteria.valueDisplay})</span>}
                           </p>
                           <div className="text-xs text-primary font-medium">
@@ -311,7 +328,7 @@ const ProjectDetail = () => {
                       </div>
 
                       <div className="flex flex-col space-y-2">
-                        {/* Always show the link button */}
+                        {/* Button to launch the dApp/platform */}
                         <Button
                           variant={getPlatformVariant(task.platform) as any}
                           size="sm"
@@ -319,14 +336,15 @@ const ProjectDetail = () => {
                         >
                           {getPlatformIcon(task.platform)}
                           <span className="ml-2">
-                            {task.platform === 'onchain' ? 'Launch App' : 
-                             task.platform === 'website' ? 'Visit Site' : 
-                             task.platform === 'twitter' ? 'Go to X' : 
-                             task.platform === 'discord' ? 'Join Discord' : 
+                            {task.platform === 'onchain' ? 'Launch App' :
+                             task.platform === 'website' ? 'Visit Site' :
+                             task.platform === 'twitter' ? 'Go to X' :
+                             task.platform === 'discord' ? 'Join Discord' :
                              task.platform === 'telegram' ? 'Join Telegram' : 'Open'}
                           </span>
                         </Button>
-                        
+
+                        {/* Button to start/verify the task */}
                         {getMainQuestActionButton(task)}
                       </div>
                     </div>
@@ -357,7 +375,7 @@ const ProjectDetail = () => {
                             {dailyStats.tasks.map((dailyTask) => (
                                 <div key={dailyTask.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
                                     <div className="flex items-center space-x-3">
-                                        {getPlatformIcon(dailyTask.platform)} {/* Use icon based on platform for daily tasks */}
+                                        {getPlatformIcon(dailyTask.platform)}
                                         <div>
                                             <p className="font-medium text-sm">{dailyTask.title}</p>
                                             <p className="text-xs text-muted-foreground">
@@ -366,6 +384,7 @@ const ProjectDetail = () => {
                                         </div>
                                     </div>
                                     <div className="flex flex-col space-y-2">
+                                        {/* Button to launch the dApp for daily task action */}
                                         <Button
                                             variant={getPlatformVariant(dailyTask.platform) as any}
                                             size="sm"
@@ -376,13 +395,14 @@ const ProjectDetail = () => {
                                                 {dailyTask.platform === 'onchain' ? 'Launch App' : 'Visit Site'}
                                             </span>
                                         </Button>
-                                        {getDailyTaskActionButton(dailyTask as DailyTaskMeta)} {/* Ensure type compatibility */}
+                                        {/* Button to complete the daily task */}
+                                        {getDailyTaskActionButton(dailyTask as DailyTaskMeta)}
                                     </div>
                                 </div>
                             ))}
                             {dailyStats.badgeEligible && (
                                 <div className="flex items-center justify-center p-2 bg-primary/10 rounded-lg border border-primary/20">
-                                    <Button size="sm" onClick={useDailyTasks().claimDailyBadge.bind(null, project.id)} disabled={dailyTasksLoading}>
+                                    <Button size="sm" onClick={handleClaimDailyBadge} disabled={dailyTasksLoading}>
                                         <Award className="w-3 h-3 mr-1" />
                                         Claim Daily Badge
                                     </Button>
@@ -413,20 +433,20 @@ const ProjectDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Badge Preview */}
-                <div className="relative">
-                  <div 
-                    className={`w-full aspect-square rounded-lg border-2 border-primary/20 flex items-center justify-center overflow-hidden transition-all duration-500 
-                      ${allMainTasksCompleted && !isProjectBadgeClaimed ? 'bg-gradient-primary shadow-glow' : 'bg-muted/50 grayscale'}` // Apply grayscale if not completed/claimed
+                <div className="relative w-full aspect-square"> {/* Set aspect-square for 1:1 ratio */}
+                  <div
+                    className={`w-full h-full rounded-lg border-2 border-primary/20 flex items-center justify-center overflow-hidden transition-all duration-500
+                      ${allMainTasksCompleted && !isProjectBadgeClaimed ? 'bg-gradient-primary shadow-glow' : 'bg-muted/50 grayscale'}`
                     }
                   >
-                    <img 
-                      src={project.badgeImage} 
-                      alt={`${project.name} Badge`} 
-                      className={`w-full h-full object-cover transition-all duration-500 
-                        ${allMainTasksCompleted && !isProjectBadgeClaimed ? '' : 'blur-sm opacity-50'}` // Blur and opacity for uncompleted/unclaimed
+                    <img
+                      src={project.badgeImage}
+                      alt={`${project.name} Badge`}
+                      className={`w-full h-full object-cover transition-all duration-500
+                        ${allMainTasksCompleted && !isProjectBadgeClaimed ? '' : 'blur-sm opacity-50'}`
                       }
                     />
-                    {!allMainTasksCompleted && ( // Overlay for uncompleted quests
+                    {!allMainTasksCompleted && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/70 backdrop-blur-sm p-4">
                         <Clock className="w-8 h-8 text-muted-foreground mb-2" />
                         <div className="text-sm font-medium text-center text-muted-foreground">
@@ -434,7 +454,7 @@ const ProjectDetail = () => {
                         </div>
                       </div>
                     )}
-                    {allMainTasksCompleted && !isProjectBadgeClaimed && ( // Overlay for completed but not claimed
+                    {allMainTasksCompleted && !isProjectBadgeClaimed && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm p-4">
                         <Sparkles className="w-8 h-8 text-primary mb-2 animate-pulse" />
                         <div className="text-sm font-medium text-center text-primary">
@@ -442,7 +462,7 @@ const ProjectDetail = () => {
                         </div>
                       </div>
                     )}
-                    {isProjectBadgeClaimed && ( // Overlay for claimed badges
+                    {isProjectBadgeClaimed && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm p-4">
                         <Check className="w-8 h-8 text-green-500 mb-2" />
                         <div className="text-sm font-medium text-center text-green-500">
@@ -451,7 +471,7 @@ const ProjectDetail = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {allMainTasksCompleted && !isProjectBadgeClaimed && (
                     <div className="absolute -top-2 -right-2">
                       <Sparkles className="w-6 h-6 text-primary animate-pulse" />
@@ -466,7 +486,7 @@ const ProjectDetail = () => {
                     <span>{completedMainTasksCount}/{project.tasks.length}</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-gradient-primary h-2 rounded-full transition-all duration-500"
                       style={{ width: `${(completedMainTasksCount / project.tasks.length) * 100}%` }}
                     />
@@ -474,9 +494,9 @@ const ProjectDetail = () => {
                 </div>
 
                 {/* Claim Button */}
-                <Button 
-                  className="w-full" 
-                  disabled={!allMainTasksCompleted || isProjectBadgeClaimed} // Disable if not completed or already claimed
+                <Button
+                  className="w-full"
+                  disabled={!allMainTasksCompleted || isProjectBadgeClaimed}
                   variant={allMainTasksCompleted && !isProjectBadgeClaimed ? "default" : "outline"}
                   onClick={allMainTasksCompleted && !isProjectBadgeClaimed ? handleClaimMainBadge : undefined}
                 >
