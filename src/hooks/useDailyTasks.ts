@@ -1,217 +1,320 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { supabase } from '@/integrations/supabase/client';
+import { projects, DailyTaskMeta } from '@/data/projects'; // NEW: Import projects and DailyTaskMeta
+import { useToast } from '@/hooks/use-toast'; // NEW: Import useToast
 
-export interface DailyTask {
-  id: string;
-  user_id: string;
-  task_type: 'dex_swap' | 'daily_checkin' | 'borrow_pay_deposit' | 'long_short' | 'deploy' | 'trade';
-  project_id: string;
-  completed_at: string;
-  streak_count: number;
-  verification_data?: any;
+// NEW: Define local storage keys
+const DAILY_PROGRESS_STORAGE_KEY = 'risehunt_daily_progress';
+const DAILY_COMPLETIONS_STORAGE_KEY = 'risehunt_daily_completions';
+
+// NEW: Define interfaces for local storage data
+export interface LocalDailyCompletion {
+  id: string; // Unique ID for this completion instance
+  projectId: string;
+  dailyTaskId: string; // Refers to DailyTaskMeta.id
+  completedAt: string; // ISO string date
 }
 
-export interface DailyProgress {
-  id: string;
-  user_id: string;
-  project_id: string;
-  total_completions: number;
-  current_streak: number;
-  last_completion_date?: string;
-  badge_claimed: boolean;
+export interface LocalDailyProgress {
+  projectId: string;
+  totalCompletions: number;
+  currentStreak: number;
+  lastCompletionDate: string; // YYYY-MM-DD
+  badgeClaimed: boolean;
 }
 
 export const useDailyTasks = () => {
   const { address, isConnected } = useAccount();
-  const [dailyProgress, setDailyProgress] = useState<DailyProgress[]>([]);
-  const [todaysTasks, setTodaysTasks] = useState<DailyTask[]>([]);
+  const { toast } = useToast(); // NEW: Initialize toast
+  const [dailyProgress, setDailyProgress] = useState<LocalDailyProgress[]>([]);
+  const [todaysCompletions, setTodaysCompletions] = useState<LocalDailyCompletion[]>([]); // NEW: Changed to track specific completions today
   const [loading, setLoading] = useState(false);
 
-  // Fetch user's daily progress and today's tasks
-  const fetchDailyData = async () => {
-    if (!address || !isConnected) return;
+  // Helper to create default progress for a new user/project
+  const createDefaultLocalProgress = (projectId: string): LocalDailyProgress => ({
+    projectId,
+    totalCompletions: 0,
+    currentStreak: 0,
+    lastCompletionDate: '',
+    badgeClaimed: false,
+  });
 
-    setLoading(true);
-    try {
-      // Fetch daily progress
-      const { data: progress } = await supabase
-        .from('daily_progress')
-        .select('*')
-        .eq('user_id', address.toLowerCase());
-
-      setDailyProgress(progress || []);
-
-      // Fetch today's tasks
-      const today = new Date().toISOString().split('T')[0];
-      const { data: tasks } = await supabase
-        .from('daily_tasks')
-        .select('*')
-        .eq('user_id', address.toLowerCase())
-        .gte('completed_at', `${today}T00:00:00Z`)
-        .lt('completed_at', `${today}T23:59:59Z`);
-
-      setTodaysTasks((tasks || []) as DailyTask[]);
-    } catch (error) {
-      console.error('Error fetching daily data:', error);
+  // Load progress and completions from localStorage
+  const loadDailyData = () => {
+    if (!address || !isConnected) {
+      setDailyProgress([]);
+      setTodaysCompletions([]);
+      return;
     }
-    setLoading(false);
+
+    const userAddress = address.toLowerCase();
+
+    // Load all users' daily progress
+    const storedProgress = localStorage.getItem(DAILY_PROGRESS_STORAGE_KEY);
+    let allUsersProgress: { [key: string]: LocalDailyProgress[] } = {};
+    if (storedProgress) {
+      try {
+        allUsersProgress = JSON.parse(storedProgress);
+      } catch (e) {
+        console.error("Failed to parse daily progress from localStorage", e);
+      }
+    }
+    setDailyProgress(allUsersProgress[userAddress] || []);
+
+    // Load all users' daily completions
+    const storedCompletions = localStorage.getItem(DAILY_COMPLETIONS_STORAGE_KEY);
+    let allUsersCompletions: { [key: string]: LocalDailyCompletion[] } = {};
+    if (storedCompletions) {
+      try {
+        allUsersCompletions = JSON.parse(storedCompletions);
+      } catch (e) {
+        console.error("Failed to parse daily completions from localStorage", e);
+      }
+    }
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    // Filter completions for current user and today only
+    const usersTodaysCompletions = (allUsersCompletions[userAddress] || []).filter(
+      comp => comp.completedAt.startsWith(todayDate) // Assuming completedAt is ISO string
+    );
+    setTodaysCompletions(usersTodaysCompletions);
+  };
+
+  // Save progress and completions to localStorage
+  const saveDailyData = (
+    newDailyProgress: LocalDailyProgress[],
+    newTodaysCompletions: LocalDailyCompletion[]
+  ) => {
+    if (!address) return;
+    const userAddress = address.toLowerCase();
+
+    // Save daily progress
+    const storedProgress = localStorage.getItem(DAILY_PROGRESS_STORAGE_KEY);
+    let allUsersProgress = storedProgress ? JSON.parse(storedProgress) : {};
+    allUsersProgress[userAddress] = newDailyProgress;
+    localStorage.setItem(DAILY_PROGRESS_STORAGE_KEY, JSON.stringify(allUsersProgress));
+    setDailyProgress(newDailyProgress);
+
+    // Save daily completions (keep only last 2 days' data to avoid excessive growth)
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const storedCompletions = localStorage.getItem(DAILY_COMPLETIONS_STORAGE_KEY);
+    let allUsersCompletions = storedCompletions ? JSON.parse(storedCompletions) : {};
+    const filteredCompletions = (allUsersCompletions[userAddress] || []).filter(
+        (comp: LocalDailyCompletion) => comp.completedAt >= twoDaysAgo
+    );
+    allUsersCompletions[userAddress] = [...filteredCompletions, ...newTodaysCompletions.filter(comp => !filteredCompletions.some(fc => fc.id === comp.id))];
+    localStorage.setItem(DAILY_COMPLETIONS_STORAGE_KEY, JSON.stringify(allUsersCompletions));
+    setTodaysCompletions(newTodaysCompletions);
   };
 
   // Complete a daily task
-  const completeDailyTask = async (taskType: 'dex_swap' | 'daily_checkin' | 'borrow_pay_deposit' | 'long_short' | 'deploy' | 'trade', projectId: string, verificationData?: any) => {
+  const completeDailyTask = async (dailyTaskMeta: DailyTaskMeta, projectId: string) => { // NEW: Pass DailyTaskMeta
     if (!address) return { error: 'No wallet connected' };
+    setLoading(true);
 
     try {
-      // Check if this task type was already completed today
-      const today = new Date().toISOString().split('T')[0];
-      const todaysTasksForType = todaysTasks.filter(
-        t => t.task_type === taskType && t.project_id === projectId
-      );
+      const userAddress = address.toLowerCase();
+      const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
-      // Check daily limits based on project and task type
-      const dailyLimits = getDailyLimits(projectId, taskType);
-      if (todaysTasksForType.length >= dailyLimits.maxPerDay) {
-        return { error: `Daily ${taskType} limit reached (${dailyLimits.maxPerDay}/day)` };
+      // 1. Check daily limit
+      const currentDailyCompletionsForThisTask = todaysCompletions.filter(
+        comp => comp.projectId === projectId && comp.dailyTaskId === dailyTaskMeta.id
+      ).length;
+
+      if (currentDailyCompletionsForThisTask >= dailyTaskMeta.dailyLimit) {
+        setLoading(false);
+        return { error: `Daily limit reached for "${dailyTaskMeta.title}" (${dailyTaskMeta.dailyLimit}/day)` };
       }
 
-      // Add the daily task
-      const { error: taskError } = await supabase
-        .from('daily_tasks')
-        .insert({
-          user_id: address.toLowerCase(),
-          task_type: taskType,
-          project_id: projectId,
-          verification_data: verificationData
+      // 2. Simulate verification delay
+      toast({
+        title: `Initiating verification for "${dailyTaskMeta.title}"`,
+        description: `Please complete the action on ${dailyTaskMeta.platform.toUpperCase()}. We will verify automatically.`,
+        duration: dailyTaskMeta.simulationDelayMs + 2000,
+      });
+
+      const verificationSuccess = await new Promise(resolve => setTimeout(() => {
+        // Simulate success (e.g., 90% success rate for dummy)
+        resolve(Math.random() > 0.1);
+      }, dailyTaskMeta.simulationDelayMs));
+
+      if (!verificationSuccess) {
+        setLoading(false);
+        toast({
+          title: "Verification Failed",
+          description: `Could not verify your "${dailyTaskMeta.title}". Please try again.`,
+          variant: "destructive"
         });
+        return { error: 'Verification failed' };
+      }
 
-      if (taskError) throw taskError;
+      // 3. Record new daily completion
+      const newCompletion: LocalDailyCompletion = {
+        id: `${userAddress}-${projectId}-${dailyTaskMeta.id}-${Date.now()}`, // Unique ID for this completion
+        projectId,
+        dailyTaskId: dailyTaskMeta.id,
+        completedAt: new Date().toISOString(),
+      };
+      const updatedTodaysCompletions = [...todaysCompletions, newCompletion];
 
-      // Update or create daily progress
-      const existingProgress = dailyProgress.find(p => p.project_id === projectId);
-      const today_date = new Date().toISOString().split('T')[0];
-      
-      if (existingProgress) {
-        const newTotal = existingProgress.total_completions + 1;
-        const isConsecutiveDay = existingProgress.last_completion_date === 
+      // 4. Update overall daily progress for the project
+      let updatedDailyProgress = [...dailyProgress];
+      let projectProgress = updatedDailyProgress.find(p => p.projectId === projectId);
+
+      if (projectProgress) {
+        const isConsecutiveDay = projectProgress.lastCompletionDate === 
           new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
-        const newStreak = existingProgress.last_completion_date === today_date 
-          ? existingProgress.current_streak 
+        // Only increment streak if it's a new day and consecutive, or if it's the same day
+        const newStreak = projectProgress.lastCompletionDate === todayDate 
+          ? projectProgress.currentStreak 
           : isConsecutiveDay 
-            ? existingProgress.current_streak + 1 
+            ? projectProgress.currentStreak + 1 
             : 1;
 
-        await supabase
-          .from('daily_progress')
-          .update({
-            total_completions: newTotal,
-            current_streak: newStreak,
-            last_completion_date: today_date
-          })
-          .eq('id', existingProgress.id);
+        projectProgress.totalCompletions += 1;
+        projectProgress.currentStreak = newStreak;
+        projectProgress.lastCompletionDate = todayDate;
       } else {
-        await supabase
-          .from('daily_progress')
-          .insert({
-            user_id: address.toLowerCase(),
-            project_id: projectId,
-            total_completions: 1,
-            current_streak: 1,
-            last_completion_date: today_date
-          });
+        // Create new progress entry for the project
+        updatedDailyProgress.push(createDefaultLocalProgress(projectId));
+        projectProgress = updatedDailyProgress[updatedDailyProgress.length - 1];
+        projectProgress.totalCompletions = 1;
+        projectProgress.currentStreak = 1;
+        projectProgress.lastCompletionDate = todayDate;
       }
-
-      // Refresh data
-      await fetchDailyData();
+      
+      saveDailyData(updatedDailyProgress, updatedTodaysCompletions);
+      toast({
+        title: "Daily Task Completed!",
+        description: `"${dailyTaskMeta.title}" for ${projects.find(p => p.id === projectId)?.name} verified!`,
+      });
       return { success: true };
+
     } catch (error) {
       console.error('Error completing daily task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete daily task. Please try again.",
+        variant: "destructive"
+      });
       return { error: 'Failed to complete task' };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Claim badge after reaching required completions
+  // Claim daily badge
   const claimDailyBadge = async (projectId: string) => {
     if (!address) return { error: 'No wallet connected' };
+    setLoading(true);
 
-    const progress = dailyProgress.find(p => p.project_id === projectId);
-    const requiredCompletions = getBadgeRequirement(projectId);
-    if (!progress || progress.total_completions < requiredCompletions || progress.badge_claimed) {
+    let updatedDailyProgress = [...dailyProgress];
+    let projectProgress = updatedDailyProgress.find(p => p.projectId === projectId);
+
+    const dailyTaskMetas = projects.find(p => p.id === projectId)?.dailyTasks;
+    if (!dailyTaskMetas || dailyTaskMetas.length === 0) {
+        setLoading(false);
+        return { error: 'No daily tasks defined for this project.' };
+    }
+    // For simplicity, assume all daily tasks in a project contribute to ONE daily badge
+    // So we take the totalForBadge from the first dailyTaskMeta for this project
+    const badgeRequirement = dailyTaskMetas[0].totalForBadge;
+
+    if (!projectProgress || projectProgress.totalCompletions < badgeRequirement || projectProgress.badgeClaimed) {
+      setLoading(false);
       return { error: 'Badge not eligible or already claimed' };
     }
 
     try {
-      await supabase
-        .from('daily_progress')
-        .update({ badge_claimed: true })
-        .eq('id', progress.id);
+      // Simulate NFT minting delay
+      toast({
+        title: "Claiming Badge...",
+        description: `Your ${projects.find(p => p.id === projectId)?.name} Daily Badge NFT is being minted on Risechain.`,
+        duration: 4000,
+      });
 
-      await fetchDailyData();
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate minting transaction
+
+      projectProgress.badgeClaimed = true;
+      saveDailyData(updatedDailyProgress, todaysCompletions); // Save updated progress
+      
+      toast({
+        title: "Daily Badge Claimed!",
+        description: `🎉 You've earned the ${projects.find(p => p.id === projectId)?.name} Daily Master NFT badge!`,
+      });
       return { success: true };
     } catch (error) {
+      console.error('Error claiming daily badge:', error);
+      toast({
+        title: "Error",
+        description: "Failed to claim daily badge.",
+        variant: "destructive"
+      });
       return { error: 'Failed to claim badge' };
+    } finally {
+      setLoading(false);
     }
   };
 
   // Get daily task stats for a project
   const getDailyStats = (projectId: string) => {
-    const progress = dailyProgress.find(p => p.project_id === projectId);
-    const todaysSwaps = todaysTasks.filter(t => ['dex_swap', 'trade', 'borrow_pay_deposit', 'long_short', 'deploy'].includes(t.task_type) && t.project_id === projectId).length;
-    const todaysCheckin = todaysTasks.filter(t => t.task_type === 'daily_checkin' && t.project_id === projectId).length > 0;
-    const requiredCompletions = getBadgeRequirement(projectId);
-    const dailyLimits = getDailyLimits(projectId, 'dex_swap'); // Get default limits
+    const projectDailyProgress = dailyProgress.find(p => p.projectId === projectId);
+    const dailyTaskMetas = projects.find(p => p.id === projectId)?.dailyTasks;
 
-    return {
-      totalCompletions: progress?.total_completions || 0,
-      currentStreak: progress?.current_streak || 0,
-      badgeEligible: (progress?.total_completions || 0) >= requiredCompletions && !progress?.badge_claimed,
-      badgeClaimed: progress?.badge_claimed || false,
-      todaysSwaps,
-      todaysCheckin,
-      canSwap: todaysSwaps < dailyLimits.maxPerDay,
-      canCheckin: !todaysCheckin
+    if (!dailyTaskMetas || dailyTaskMetas.length === 0) {
+        return {
+            totalCompletions: 0,
+            currentStreak: 0,
+            badgeEligible: false,
+            badgeClaimed: false,
+            // Generic canDo property
+            canDoAnyDailyTask: false,
+            // Specific daily task counts and canDo status
+            tasks: [],
+            badgeRequirement: 0
+        };
+    }
+
+    const stats = {
+      totalCompletions: projectDailyProgress?.totalCompletions || 0,
+      currentStreak: projectDailyProgress?.currentStreak || 0,
+      badgeClaimed: projectDailyProgress?.badgeClaimed || false,
+      badgeRequirement: dailyTaskMetas[0].totalForBadge, // Assuming same requirement for all daily tasks in project
+      tasks: dailyTaskMetas.map(meta => {
+        const completedToday = todaysCompletions.filter(
+          comp => comp.projectId === projectId && comp.dailyTaskId === meta.id
+        ).length;
+        return {
+          id: meta.id,
+          title: meta.title,
+          action: meta.action,
+          link: meta.link,
+          dailyLimit: meta.dailyLimit,
+          completedToday,
+          canCompleteToday: completedToday < meta.dailyLimit,
+        };
+      }),
     };
+    
+    // Check if badge is eligible based on its specific requirement
+    stats.badgeEligible = stats.totalCompletions >= stats.badgeRequirement && !stats.badgeClaimed;
+
+    return stats;
   };
 
+  // Load data on component mount or address/connection change
   useEffect(() => {
-    if (isConnected && address) {
-      fetchDailyData();
-    }
+    loadDailyData();
   }, [address, isConnected]);
 
   return {
     dailyProgress,
-    todaysTasks,
+    todaysCompletions,
     loading,
     completeDailyTask,
     claimDailyBadge,
     getDailyStats,
-    refreshData: fetchDailyData
+    refreshData: loadDailyData
   };
-};
-
-// Helper functions for project-specific configurations
-const getDailyLimits = (projectId: string, taskType: string) => {
-  const limits: Record<string, { maxPerDay: number }> = {
-    'nitrodex': { maxPerDay: 5 },
-    'inarfi': { maxPerDay: 3 },
-    'b3x': { maxPerDay: 3 },
-    'onchaingm': { maxPerDay: 1 },
-    'kingdom': { maxPerDay: 1 },
-    'standard': { maxPerDay: 5 }
-  };
-  return limits[projectId] || { maxPerDay: 1 };
-};
-
-const getBadgeRequirement = (projectId: string): number => {
-  const requirements: Record<string, number> = {
-    'nitrodex': 20,
-    'inarfi': 10,
-    'b3x': 15,
-    'onchaingm': 4,
-    'kingdom': 4,
-    'standard': 20
-  };
-  return requirements[projectId] || 20;
 };
