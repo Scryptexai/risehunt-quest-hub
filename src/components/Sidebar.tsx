@@ -20,7 +20,7 @@ const Sidebar = () => {
             <Wallet className="w-12 h-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
             <p className="text-sm text-muted-foreground">
-              Connect your wallet to track your quest progress and earn badges.
+              Connect your wallet in the header to track your quest progress and earn badges.
             </p>
           </CardContent>
         </Card>
@@ -57,26 +57,6 @@ const Sidebar = () => {
 
   return (
     <div className="space-y-6">
-      {/* Wallet Connection */}
-      <Card className="bg-gradient-card border-primary/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center space-x-2">
-            <Wallet className="w-5 h-5" />
-            <span>My Wallet</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-background/50 border border-border">
-              <p className="text-sm text-muted-foreground">Connected Wallet</p>
-              <p className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</p>
-            </div>
-            <div className="text-xs text-muted-foreground text-center">
-              Progress saved locally
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Progress Overview */}
       <Card className="bg-gradient-card border-primary/20">

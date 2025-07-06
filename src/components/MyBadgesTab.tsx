@@ -63,7 +63,7 @@ const MyBadgesTab = () => {
                 <img 
                   src={project.badgeImage} 
                   alt={`${project.name} NFT Badge`}
-                  className="w-full h-32 object-cover rounded-lg"
+                  className="w-full aspect-square object-cover rounded-lg"
                 />
                 <div className="absolute top-2 right-2">
                   <Badge variant="default" className="bg-gradient-primary text-white border-0">

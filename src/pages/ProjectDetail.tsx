@@ -7,6 +7,7 @@ import { Twitter, MessageCircle, Send, Globe, Zap, Check, Clock, ArrowLeft, Awar
 import { projects } from '@/data/projects';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
+import DailyTaskSection from '@/components/DailyTaskSection';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -276,10 +277,10 @@ const ProjectDetail = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Badge Preview */}
+                {/* Badge Preview - 1:1 Aspect Ratio */}
                 <div className="relative">
                   <div 
-                    className={`w-full h-40 rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
+                    className={`aspect-square w-full rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
                       allTasksCompleted && !badgeClaimed
                         ? 'shadow-glow' 
                         : !allTasksCompleted 
@@ -371,6 +372,14 @@ const ProjectDetail = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Daily Tasks Section */}
+            <div className="mt-6">
+              <DailyTaskSection 
+                projectId={project.id} 
+                projectName={project.name} 
+              />
+            </div>
           </div>
         </div>
       </div>

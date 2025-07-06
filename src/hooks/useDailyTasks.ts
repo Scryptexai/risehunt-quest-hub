@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface DailyTask {
   id: string;
   user_id: string;
-  task_type: 'dex_swap' | 'daily_checkin';
+  task_type: 'dex_swap' | 'daily_checkin' | 'borrow_pay_deposit' | 'long_short' | 'deploy' | 'trade';
   project_id: string;
   completed_at: string;
   streak_count: number;
@@ -59,7 +59,7 @@ export const useDailyTasks = () => {
   };
 
   // Complete a daily task
-  const completeDailyTask = async (taskType: 'dex_swap' | 'daily_checkin', projectId: string, verificationData?: any) => {
+  const completeDailyTask = async (taskType: 'dex_swap' | 'daily_checkin' | 'borrow_pay_deposit' | 'long_short' | 'deploy' | 'trade', projectId: string, verificationData?: any) => {
     if (!address) return { error: 'No wallet connected' };
 
     try {
@@ -69,14 +69,10 @@ export const useDailyTasks = () => {
         t => t.task_type === taskType && t.project_id === projectId
       );
 
-      // For DEX swaps, allow up to 5 per day
-      if (taskType === 'dex_swap' && todaysTasksForType.length >= 5) {
-        return { error: 'Daily DEX swap limit reached (5/day)' };
-      }
-
-      // For daily check-in, allow only 1 per day
-      if (taskType === 'daily_checkin' && todaysTasksForType.length >= 1) {
-        return { error: 'Daily check-in already completed today' };
+      // Check daily limits based on project and task type
+      const dailyLimits = getDailyLimits(projectId, taskType);
+      if (todaysTasksForType.length >= dailyLimits.maxPerDay) {
+        return { error: `Daily ${taskType} limit reached (${dailyLimits.maxPerDay}/day)` };
       }
 
       // Add the daily task
@@ -135,12 +131,13 @@ export const useDailyTasks = () => {
     }
   };
 
-  // Claim badge after reaching 20 completions
+  // Claim badge after reaching required completions
   const claimDailyBadge = async (projectId: string) => {
     if (!address) return { error: 'No wallet connected' };
 
     const progress = dailyProgress.find(p => p.project_id === projectId);
-    if (!progress || progress.total_completions < 20 || progress.badge_claimed) {
+    const requiredCompletions = getBadgeRequirement(projectId);
+    if (!progress || progress.total_completions < requiredCompletions || progress.badge_claimed) {
       return { error: 'Badge not eligible or already claimed' };
     }
 
@@ -160,17 +157,19 @@ export const useDailyTasks = () => {
   // Get daily task stats for a project
   const getDailyStats = (projectId: string) => {
     const progress = dailyProgress.find(p => p.project_id === projectId);
-    const todaysSwaps = todaysTasks.filter(t => t.task_type === 'dex_swap' && t.project_id === projectId).length;
+    const todaysSwaps = todaysTasks.filter(t => ['dex_swap', 'trade', 'borrow_pay_deposit', 'long_short', 'deploy'].includes(t.task_type) && t.project_id === projectId).length;
     const todaysCheckin = todaysTasks.filter(t => t.task_type === 'daily_checkin' && t.project_id === projectId).length > 0;
+    const requiredCompletions = getBadgeRequirement(projectId);
+    const dailyLimits = getDailyLimits(projectId, 'dex_swap'); // Get default limits
 
     return {
       totalCompletions: progress?.total_completions || 0,
       currentStreak: progress?.current_streak || 0,
-      badgeEligible: (progress?.total_completions || 0) >= 20 && !progress?.badge_claimed,
+      badgeEligible: (progress?.total_completions || 0) >= requiredCompletions && !progress?.badge_claimed,
       badgeClaimed: progress?.badge_claimed || false,
       todaysSwaps,
       todaysCheckin,
-      canSwap: todaysSwaps < 5,
+      canSwap: todaysSwaps < dailyLimits.maxPerDay,
       canCheckin: !todaysCheckin
     };
   };
@@ -190,4 +189,29 @@ export const useDailyTasks = () => {
     getDailyStats,
     refreshData: fetchDailyData
   };
+};
+
+// Helper functions for project-specific configurations
+const getDailyLimits = (projectId: string, taskType: string) => {
+  const limits: Record<string, { maxPerDay: number }> = {
+    'nitrodex': { maxPerDay: 5 },
+    'inarfi': { maxPerDay: 3 },
+    'b3x': { maxPerDay: 3 },
+    'onchaingm': { maxPerDay: 1 },
+    'kingdom': { maxPerDay: 1 },
+    'standard': { maxPerDay: 5 }
+  };
+  return limits[projectId] || { maxPerDay: 1 };
+};
+
+const getBadgeRequirement = (projectId: string): number => {
+  const requirements: Record<string, number> = {
+    'nitrodex': 20,
+    'inarfi': 10,
+    'b3x': 15,
+    'onchaingm': 4,
+    'kingdom': 4,
+    'standard': 20
+  };
+  return requirements[projectId] || 20;
 };
