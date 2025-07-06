@@ -1,10 +1,15 @@
+
 import { Project } from '@/data/projects';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { ArrowRight, Award, Clock, CheckCircle, Sparkles } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ArrowRight, Award, Clock, Check, Sparkles } from 'lucide-react'; // Removed CheckCircle, Zap, Calendar, Flame
 import { useNavigate } from 'react-router-dom';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useToast } from '@/hooks/use-toast';
+import { useAccount } from 'wagmi';
+// Removed useDailyTasks import as it's no longer needed in this component
 
 interface ProjectOverviewCardProps {
   project: Project;
@@ -12,29 +17,27 @@ interface ProjectOverviewCardProps {
 
 const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
   const navigate = useNavigate();
+  const { isConnected } = useAccount(); // Keep for conditional display if needed elsewhere
   const { getProjectStats, progress } = useUserProgress();
+  const { toast } = useToast();
   
   const { completed: completedTasks, total: totalTasks, progress: progressPercentage } = getProjectStats(project.id, project.tasks.length);
-  const isCompleted = completedTasks === totalTasks;
-  const badgeClaimed = progress?.badges.includes(project.id);
+  const allTasksCompleted = completedTasks === totalTasks;
+  
+  // Determine if this project's main badge is claimed
+  const isProjectBadgeClaimed = progress?.badges.includes(project.id); 
 
-  // Get quest status for badge display
-  const getQuestStatus = () => {
-    if (badgeClaimed) return 'Claimed';
-    if (isCompleted) return 'Completed';
-    if (completedTasks > 0) return 'In Progress';
-    return 'New Quest';
-  };
+  let overallStatusBadge = null;
+  if (isProjectBadgeClaimed) {
+    overallStatusBadge = <Badge variant="badge" className="bg-primary text-primary-foreground">Claimed</Badge>;
+  } else if (allTasksCompleted) {
+    overallStatusBadge = <Badge variant="default" className="bg-green-500 text-white">Completed</Badge>;
+  } else if (completedTasks > 0) {
+    overallStatusBadge = <Badge variant="outline" className="text-blue-400 border-blue-400">In Progress</Badge>;
+  } else {
+    overallStatusBadge = <Badge variant="outline">New Quest</Badge>;
+  }
 
-  const getStatusVariant = () => {
-    const status = getQuestStatus();
-    switch (status) {
-      case 'Claimed': return 'default';
-      case 'Completed': return 'default';
-      case 'In Progress': return 'secondary';
-      default: return 'outline';
-    }
-  };
 
   const handleEnterQuest = () => {
     navigate(`/project/${project.id}`);
@@ -45,17 +48,13 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-4">
-            <div className="relative">
+            <div className="relative w-14 h-14"> {/* Set fixed size for badge image for 1:1 ratio */}
               <img 
                 src={project.logo} 
                 alt={`${project.name} logo`} 
-                className="w-14 h-14 rounded-xl object-cover border border-primary/20 group-hover:border-primary/40 transition-colors"
+                className="w-full h-full rounded-xl object-cover border border-primary/20 group-hover:border-primary/40 transition-colors"
               />
-              {isCompleted && (
-                <div className="absolute -top-1 -right-1">
-                  <CheckCircle className="w-5 h-5 text-green-400 bg-background rounded-full" />
-                </div>
-              )}
+              {/* No CheckCircle here, as the badge preview below will show overall status */}
             </div>
             <div>
               <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
@@ -68,9 +67,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           </div>
           
           <div className="flex items-center space-x-2">
-            <Badge variant={getStatusVariant() as any} className="border-primary/30">
-              {getQuestStatus()}
-            </Badge>
+            {overallStatusBadge}
             <Badge variant="outline" className="border-primary/30">
               {totalTasks} Task{totalTasks !== 1 ? 's' : ''}
             </Badge>
@@ -79,80 +76,17 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* NFT Badge Preview */}
-        <div className="space-y-3 pt-3 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Award className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">NFT Badge Reward</span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {isCompleted ? 'Ready to claim!' : `${project.tasks.length - completedTasks} tasks left`}
-            </span>
-          </div>
-          
-          <div className="relative">
-            <div 
-              className={`aspect-square w-full rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
-                isCompleted && !badgeClaimed
-                  ? 'shadow-glow' 
-                  : !isCompleted 
-                  ? 'grayscale blur-sm' 
-                  : ''
-              }`}
-            >
-              <img 
-                src={project.badgeImage} 
-                alt={`${project.name} NFT Badge`}
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Overlay for locked state */}
-              {!isCompleted && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Locked
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Sparkles effect for completed state */}
-              {isCompleted && !badgeClaimed && (
-                <div className="absolute -top-1 -right-1">
-                  <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-                </div>
-              )}
-              
-              {/* Claimed indicator */}
-              {badgeClaimed && (
-                <div className="absolute top-1 right-1">
-                  <CheckCircle className="w-4 h-4 text-green-400 bg-background rounded-full" />
-                </div>
-              )}
-            </div>
-            
-            {/* Badge status text */}
-            <div className="text-center mt-2">
-              <div className="text-xs text-muted-foreground">
-                {badgeClaimed ? 'Badge Claimed!' : isCompleted ? 'Badge Unlocked!' : 'Complete tasks to unlock'}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Progress Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {isCompleted ? (
+              {allTasksCompleted ? (
                 <Award className="w-4 h-4 text-primary" />
               ) : (
                 <Clock className="w-4 h-4 text-muted-foreground" />
               )}
               <span className="text-sm font-medium">
-                {isCompleted ? 'Quest Completed!' : 'Quest Progress'}
+                {allTasksCompleted ? 'Quest Completed!' : 'Quest Progress'}
               </span>
             </div>
             <span className="text-sm text-muted-foreground">
@@ -163,7 +97,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           <div className="w-full bg-muted rounded-full h-2">
             <div 
               className={`h-2 rounded-full transition-all duration-500 ${
-                isCompleted 
+                allTasksCompleted 
                   ? 'bg-gradient-primary shadow-glow' 
                   : 'bg-primary/60'
               }`}
@@ -174,36 +108,92 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
 
         {/* Task Types Preview */}
         <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center space-x-2">
-            <div className="flex space-x-1">
-              {project.tasks.slice(0, 3).map((task, index) => (
-                <Badge 
-                  key={index}
-                  variant={task.type === 'SOCIAL' ? 'secondary' : 'default'}
-                  className="text-xs px-2 py-1"
-                >
-                  {task.platform.toUpperCase()}
-                </Badge>
-              ))}
-              {project.tasks.length > 3 && (
-                <Badge variant="outline" className="text-xs px-2 py-1">
-                  +{project.tasks.length - 3}
-                </Badge>
-              )}
-            </div>
+          <div className="flex space-x-1">
+            {project.tasks.slice(0, 3).map((task, index) => (
+              <Badge 
+                key={index}
+                variant={task.type === 'SOCIAL' ? 'secondary' : 'default'}
+                className="text-xs px-2 py-1"
+              >
+                {task.platform.toUpperCase()}
+              </Badge>
+            ))}
+            {project.tasks.length > 3 && (
+              <Badge variant="outline" className="text-xs px-2 py-1">
+                +{project.tasks.length - 3}
+              </Badge>
+            )}
           </div>
           
           <Button 
-            variant={isCompleted ? "default" : "quest"} 
+            variant={allTasksCompleted && !isProjectBadgeClaimed ? "default" : "quest"}
             size="sm"
             onClick={handleEnterQuest}
             className="group-hover:scale-105 transition-transform"
           >
-            {badgeClaimed ? 'View Quest' : isCompleted ? 'Claim Badge' : 'Enter Quest'}
+            {allTasksCompleted && !isProjectBadgeClaimed ? 'View Quest' : 'Enter Quest'}
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
 
+        {/* Regular Quest Reward Preview (NFT Badge Preview) */}
+        {isConnected && (
+          <div className="pt-3 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2 text-sm">
+                <Award className="w-4 h-4 text-primary" />
+                <span className="text-primary font-medium">Quest Badge NFT</span>
+              </div>
+              {isProjectBadgeClaimed ? (
+                <Badge variant="default" className="text-xs">
+                  <Check className="w-3 h-3 mr-1" /> Claimed
+                </Badge>
+              ) : allTasksCompleted ? (
+                <Badge variant="default" className="bg-green-500 text-white text-xs">
+                  Ready to Claim!
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  {project.tasks.length - completedTasks} tasks remaining
+                </Badge>
+              )}
+            </div>
+            <div className={`relative w-full aspect-square rounded-lg flex items-center justify-center overflow-hidden 
+              ${allTasksCompleted && !isProjectBadgeClaimed ? 'bg-gradient-primary shadow-glow' : 'bg-muted/50 grayscale'}`}>
+              <img 
+                src={project.badgeImage} 
+                alt={`${project.name} Badge`} 
+                className={`w-full h-full object-cover transition-all duration-500 
+                  ${allTasksCompleted && !isProjectBadgeClaimed ? '' : 'blur-sm opacity-50'}` 
+                }
+              />
+              {!allTasksCompleted && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/70 backdrop-blur-sm p-4">
+                  <Clock className="w-8 h-8 text-muted-foreground mb-2" />
+                  <div className="text-sm font-medium text-center text-muted-foreground">
+                    Complete all {project.tasks.length - completedTasks} tasks to reveal
+                  </div>
+                </div>
+              )}
+              {allTasksCompleted && !isProjectBadgeClaimed && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm p-4">
+                  <Sparkles className="w-8 h-8 text-primary mb-2 animate-pulse" />
+                  <div className="text-sm font-medium text-center text-primary">
+                    Badge Unlocked!
+                  </div>
+                </div>
+              )}
+              {isProjectBadgeClaimed && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm p-4">
+                  <Check className="w-8 h-8 text-green-500 mb-2" />
+                  <div className="text-sm font-medium text-center text-green-500">
+                    Badge Claimed!
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
