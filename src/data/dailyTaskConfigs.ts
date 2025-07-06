@@ -16,11 +16,11 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
     taskTypes: [
       {
         type: 'dex_swap',
-        displayName: 'DEX Swap',
+        displayName: 'Swap Tokens',
         maxPerDay: 5,
         totalRequired: 20,
         icon: '⚡',
-        description: 'Complete token swaps on NitroDex'
+        description: 'Complete token swaps on NitroDex (Min $10 USDC)'
       }
     ]
   },
@@ -29,11 +29,11 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
     taskTypes: [
       {
         type: 'borrow_pay_deposit',
-        displayName: 'DeFi Action',
+        displayName: 'DeFi Actions',
         maxPerDay: 3,
         totalRequired: 10,
         icon: '💰',
-        description: 'Borrow, pay, or deposit on Inarfi'
+        description: 'Borrow, repay, or deposit on Inarfi (Min $50 USDC)'
       }
     ]
   },
@@ -42,11 +42,11 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
     taskTypes: [
       {
         type: 'long_short',
-        displayName: 'Trading Action',
+        displayName: 'Trading Positions',
         maxPerDay: 3,
         totalRequired: 15,
         icon: '📈',
-        description: 'Execute long or short positions'
+        description: 'Execute long or short positions (Min $25 USDC)'
       }
     ]
   },
@@ -59,7 +59,7 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
         maxPerDay: 1,
         totalRequired: 4,
         icon: '🚀',
-        description: 'Deploy smart contracts'
+        description: 'Deploy smart contracts on OnchainGM'
       }
     ]
   },
@@ -68,11 +68,11 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
     taskTypes: [
       {
         type: 'daily_checkin',
-        displayName: 'Daily Check-in',
+        displayName: 'Game Check-in',
         maxPerDay: 1,
         totalRequired: 4,
         icon: '🏰',
-        description: 'Daily kingdom check-in'
+        description: 'Daily check-in to For The Kingdom game'
       }
     ]
   },
@@ -81,11 +81,11 @@ export const dailyTaskConfigs: DailyTaskConfig[] = [
     taskTypes: [
       {
         type: 'trade',
-        displayName: 'Trade',
+        displayName: 'Execute Trades',
         maxPerDay: 5,
         totalRequired: 20,
         icon: '📊',
-        description: 'Execute trades on Standard'
+        description: 'Execute trades on Standard Protocol (Min $15 USDC)'
       }
     ]
   }

@@ -17,6 +17,7 @@ export interface VerificationCriteria {
   type: 'social_follow' | 'social_join' | 'website_visit' | 'onchain_transaction';
   simulationDelayMs: number;
   successRate: number;
+  minAmount?: string; // Optional property for on-chain tasks with minimum amounts
 }
 
 export interface Task {
@@ -56,13 +57,14 @@ export const projects: Project[] = [
         type: 'ON-CHAIN',
         platform: 'onchain',
         link: 'https://www.nitrodex.xyz/trade',
-        description: 'Complete your first token swap on NitroDex',
+        description: 'Complete your first token swap on NitroDex (Min $10 USDC)',
         status: 'incomplete',
         reward: 'Trader Badge NFT',
         verificationCriteria: {
           type: 'onchain_transaction',
           simulationDelayMs: 3000,
-          successRate: 0.9
+          successRate: 0.9,
+          minAmount: '$10 USDC'
         }
       },
       {
@@ -286,13 +288,14 @@ export const projects: Project[] = [
         type: 'ON-CHAIN',
         platform: 'onchain',
         link: 'https://testnet.b3x.ai/',
-        description: 'Test the B3X AI trading platform',
+        description: 'Test the B3X AI trading platform (Min $25 USDC)',
         status: 'incomplete',
         reward: 'AI Tester Badge NFT',
         verificationCriteria: {
           type: 'onchain_transaction',
           simulationDelayMs: 4000,
-          successRate: 0.8
+          successRate: 0.8,
+          minAmount: '$25 USDC'
         }
       },
       {

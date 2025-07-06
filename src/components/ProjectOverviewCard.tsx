@@ -2,13 +2,9 @@ import { Project } from '@/data/projects';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { ArrowRight, Award, Clock, CheckCircle, Zap, Calendar, Flame, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Award, Clock, CheckCircle, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProgress } from '@/hooks/useUserProgress';
-import { useDailyTasks } from '@/hooks/useDailyTasks';
-import { useToast } from '@/hooks/use-toast';
-import { useAccount } from 'wagmi';
 
 interface ProjectOverviewCardProps {
   project: Project;
@@ -16,15 +12,11 @@ interface ProjectOverviewCardProps {
 
 const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
   const navigate = useNavigate();
-  const { isConnected } = useAccount();
   const { getProjectStats, progress } = useUserProgress();
-  const { completeDailyTask, claimDailyBadge, getDailyStats, loading } = useDailyTasks();
-  const { toast } = useToast();
   
   const { completed: completedTasks, total: totalTasks, progress: progressPercentage } = getProjectStats(project.id, project.tasks.length);
   const isCompleted = completedTasks === totalTasks;
   const badgeClaimed = progress?.badges.includes(project.id);
-  const dailyStats = getDailyStats(project.id);
 
   // Get quest status for badge display
   const getQuestStatus = () => {
@@ -46,72 +38,6 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
 
   const handleEnterQuest = () => {
     navigate(`/project/${project.id}`);
-  };
-
-  const handleDailySwap = async () => {
-    if (!isConnected) {
-      toast({
-        title: "Wallet not connected",
-        description: "Please connect your wallet to complete daily tasks.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const result = await completeDailyTask('dex_swap', project.id);
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "DEX Swap Completed!",
-        description: `Daily swap completed for ${project.name}. Progress: ${dailyStats.totalCompletions + 1}/20`,
-      });
-    }
-  };
-
-  const handleDailyCheckin = async () => {
-    if (!isConnected) {
-      toast({
-        title: "Wallet not connected",
-        description: "Please connect your wallet to complete daily tasks.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const result = await completeDailyTask('daily_checkin', project.id);
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Daily Check-in Complete!",
-        description: `Daily check-in completed for ${project.name}. Keep the streak going!`,
-      });
-    }
-  };
-
-  const handleClaimBadge = async () => {
-    const result = await claimDailyBadge(project.id);
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Badge Claimed!",
-        description: `🎉 You've earned the ${project.name} Daily Master NFT badge!`,
-      });
-    }
   };
 
   return (
@@ -167,7 +93,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           
           <div className="relative">
             <div 
-              className={`w-full h-24 rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
+              className={`aspect-square w-full rounded-lg border-2 border-primary/20 overflow-hidden transition-all duration-500 ${
                 isCompleted && !badgeClaimed
                   ? 'shadow-glow' 
                   : !isCompleted 
@@ -278,69 +204,6 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
           </Button>
         </div>
 
-        {/* Daily Tasks Section */}
-        {isConnected && (
-          <div className="space-y-3 pt-3 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium">Daily Tasks</span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {dailyStats.totalCompletions}/20 for NFT
-              </span>
-            </div>
-            
-            <Progress value={(dailyStats.totalCompletions / 20) * 100} className="h-1" />
-            
-            <div className="grid grid-cols-2 gap-2">
-              {/* DEX Swap */}
-              <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-border">
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-3 h-3 text-blue-500" />
-                  <span className="text-xs">Swap {dailyStats.todaysSwaps}/5</span>
-                </div>
-                <Button
-                  variant={dailyStats.canSwap ? "default" : "secondary"}
-                  size="sm"
-                  disabled={!dailyStats.canSwap || loading}
-                  onClick={handleDailySwap}
-                  className="h-6 px-2 text-xs"
-                >
-                  {dailyStats.canSwap ? "Swap" : "Done"}
-                </Button>
-              </div>
-              
-              {/* Daily Check-in */}
-              <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-border">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-3 h-3 text-green-500" />
-                  <span className="text-xs">Check-in</span>
-                </div>
-                <Button
-                  variant={dailyStats.canCheckin ? "default" : "secondary"}
-                  size="sm"
-                  disabled={!dailyStats.canCheckin || loading}
-                  onClick={handleDailyCheckin}
-                  className="h-6 px-2 text-xs"
-                >
-                  {dailyStats.todaysCheckin ? <Check className="w-3 h-3" /> : "Check"}
-                </Button>
-              </div>
-            </div>
-            
-            {dailyStats.badgeEligible && (
-              <div className="flex items-center justify-center p-2 bg-primary/10 rounded-lg border border-primary/20">
-                <Button size="sm" onClick={handleClaimBadge} disabled={loading} className="h-6 text-xs">
-                  <Award className="w-3 h-3 mr-1" />
-                  Claim Daily Badge
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Regular Quest Reward Preview - Remove this section since we moved it up */}
       </CardContent>
     </Card>
   );
