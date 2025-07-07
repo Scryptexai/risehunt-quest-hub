@@ -29,7 +29,7 @@ const ProjectOverviewCard = ({ project }: ProjectOverviewCardProps) => {
 
   let overallStatusBadge = null;
   if (isProjectBadgeClaimed) {
-    overallStatusBadge = <Badge variant="badge" className="bg-primary text-primary-foreground">Claimed</Badge>;
+    overallStatusBadge = <Badge variant="default" className="bg-primary text-primary-foreground">Claimed</Badge>;
   } else if (allTasksCompleted) {
     overallStatusBadge = <Badge variant="default" className="bg-green-500 text-white">Completed</Badge>;
   } else if (completedTasks > 0) {

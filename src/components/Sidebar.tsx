@@ -34,9 +34,9 @@ const Sidebar = () => {
   const totalPoints = progress?.totalPoints || 0;
   
   // Daily tasks stats
-  const totalDailyCompletions = dailyProgress.reduce((acc, p) => acc + p.total_completions, 0);
-  const dailyBadgesEligible = dailyProgress.filter(p => p.total_completions >= 20 && !p.badge_claimed).length;
-  const dailyBadgesClaimed = dailyProgress.filter(p => p.badge_claimed).length;
+  const totalDailyCompletions = dailyProgress.reduce((acc, p) => acc + p.totalCompletions, 0);
+  const dailyBadgesEligible = dailyProgress.filter(p => p.totalCompletions >= 20 && !p.badgeClaimed).length;
+  const dailyBadgesClaimed = dailyProgress.filter(p => p.badgeClaimed).length;
 
   const mockBadges = [
     { id: 'nitrodex', name: 'NitroDex Explorer', icon: '⚡', rarity: 'common' },

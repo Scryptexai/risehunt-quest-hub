@@ -316,11 +316,12 @@ const ProjectDetail = () => {
                               {task.type}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            {task.description}
-                            {task.verificationCriteria?.valueDisplay &&
-                                <span className="ml-1 text-primary">({task.verificationCriteria.valueDisplay})</span>}
-                          </p>
+                           <p className="text-sm text-muted-foreground mb-3">
+                             {task.description}
+                             {task.verificationCriteria?.valueDisplay && (
+                                 <span className="ml-1 text-primary font-medium">({task.verificationCriteria.valueDisplay})</span>
+                             )}
+                           </p>
                           <div className="text-xs text-primary font-medium">
                             Reward: {task.reward}
                           </div>
@@ -367,7 +368,7 @@ const ProjectDetail = () => {
                                 Progress: {dailyStats.totalCompletions}/{dailyStats.badgeRequirement}
                             </CardDescription>
                             <Progress value={(dailyStats.totalCompletions / dailyStats.badgeRequirement) * 100} className="h-2 mt-2" />
-                            {dailyStats.badgeEligible && (
+                            {dailyStats.totalCompletions >= dailyStats.badgeRequirement && !dailyStats.badgeClaimed && (
                                 <p className="text-xs text-primary font-medium mt-1">🎉 Badge ready to claim!</p>
                             )}
                         </CardHeader>
@@ -376,11 +377,16 @@ const ProjectDetail = () => {
                                 <div key={dailyTask.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
                                     <div className="flex items-center space-x-3">
                                         {getPlatformIcon(dailyTask.platform)}
-                                        <div>
+                                        <div className="flex-1">
                                             <p className="font-medium text-sm">{dailyTask.title}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Today: {dailyTask.completedToday}/{dailyTask.dailyLimit} completed
-                                            </p>
+                                            <div className="flex items-center space-x-4 mt-1">
+                                                <p className="text-xs text-muted-foreground">
+                                                    Today: {dailyTask.completedToday}/{dailyTask.dailyLimit} completed
+                                                </p>
+                                                <p className="text-xs text-primary font-medium">
+                                                    Badge Progress: {dailyTask.totalCompletions}/{dailyTask.totalRequired}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col space-y-2">
@@ -400,7 +406,7 @@ const ProjectDetail = () => {
                                     </div>
                                 </div>
                             ))}
-                            {dailyStats.badgeEligible && (
+                            {dailyStats.totalCompletions >= dailyStats.badgeRequirement && !dailyStats.badgeClaimed && (
                                 <div className="flex items-center justify-center p-2 bg-primary/10 rounded-lg border border-primary/20">
                                     <Button size="sm" onClick={handleClaimDailyBadge} disabled={dailyTasksLoading}>
                                         <Award className="w-3 h-3 mr-1" />
@@ -408,7 +414,7 @@ const ProjectDetail = () => {
                                     </Button>
                                 </div>
                             )}
-                            {!dailyStats.badgeEligible && dailyStats.totalCompletions > 0 && (
+                            {!(dailyStats.totalCompletions >= dailyStats.badgeRequirement && !dailyStats.badgeClaimed) && dailyStats.totalCompletions > 0 && (
                               <div className="text-xs text-center text-muted-foreground mt-3">
                                 {dailyStats.badgeRequirement - dailyStats.totalCompletions} more daily completions for badge!
                               </div>

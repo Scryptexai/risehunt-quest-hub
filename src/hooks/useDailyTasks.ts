@@ -276,11 +276,12 @@ export const useDailyTasks = () => {
         };
     }
 
-    const stats = {
+    return {
       totalCompletions: projectDailyProgress?.totalCompletions || 0,
       currentStreak: projectDailyProgress?.currentStreak || 0,
       badgeClaimed: projectDailyProgress?.badgeClaimed || false,
       badgeRequirement: dailyTaskMetas[0].totalForBadge, // Assuming same requirement for all daily tasks in project
+      badgeEligible: (projectDailyProgress?.totalCompletions || 0) >= dailyTaskMetas[0].totalForBadge && !(projectDailyProgress?.badgeClaimed || false),
       tasks: dailyTaskMetas.map(meta => {
         const completedToday = todaysCompletions.filter(
           comp => comp.projectId === projectId && comp.dailyTaskId === meta.id
@@ -296,11 +297,6 @@ export const useDailyTasks = () => {
         };
       }),
     };
-    
-    // Check if badge is eligible based on its specific requirement
-    stats.badgeEligible = stats.totalCompletions >= stats.badgeRequirement && !stats.badgeClaimed;
-
-    return stats;
   };
 
   // Load data on component mount or address/connection change
