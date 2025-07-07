@@ -5,15 +5,13 @@ import kingdomLogo from '@/assets/kingdom-logo.jpg';
 import inarfiLogo from '@/assets/inarfi-logo.jpg';
 import b3xLogo from '@/assets/b3x-logo.jpg';
 
-// Import badge images (pastikan path ini sesuai dengan struktur folder Anda)
-import nitrodexBadge from '@/assets/badges/nitrodex-badge.png';
-import standardBadge from '@/assets/badges/standard-badge.png';
-import onchainGmBadge from '@/assets/badges/onchaingm-badge.png';
-import kingdomBadge from '@/assets/badges/kingdom-badge.png';
-import inarfiBadge from '@/assets/badges/inarfi-badge.png';
-import b3xBadge from '@/assets/badges/b3x-badge.png';
-import omnihubBadge from '@/assets/badges/omnihub-badge.png';
-import gaspumpBadge from '@/assets/badges/gaspump-badge.png';
+// Import badge images
+import nitrodexBadge from '@/assets/badges/nitrodex-badge.jpg';
+import standardBadge from '@/assets/badges/standard-badge.jpg';
+import onchainGmBadge from '@/assets/badges/onchaingm-badge.jpg';
+import kingdomBadge from '@/assets/badges/kingdom-badge.jpg';
+import inarfiBadge from '@/assets/badges/inarfi-badge.jpg';
+import b3xBadge from '@/assets/badges/b3x-badge.jpg';
 
 
 export interface Task {
